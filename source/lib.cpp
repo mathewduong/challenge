@@ -1,5 +1,6 @@
 #include <cstdint>
 #include <cstdlib>
+#include <iostream>
 #include <string>
 #include <unordered_map>
 #include <utility>
@@ -98,13 +99,17 @@ void dp_step(
     size_t seq)
 {
   for (const std::string& letter : letter_layout()) {
+    // std::cout << " --- Debug --- " << '\n';
     for (size_t vowel = 0; vowel <= max_vowels; ++vowel) {
+      // Letter: A, Seq: s, Vowel: v, Count: c
+      // Is it possible to be at A at s-1 with v vowels?
       const int64_t count = dp_array.at(letter)[seq - 1][vowel];
-      // Count = number of ways to reach letter at seq-1 with vowels
-      // If it is 0 (no possible way to reach letter) skip
+      // std::cout << "Letter: " << letter << ", Seq: " << seq - 1
+      //           << ", Vowel: " << vowel << ", Count: " << count << '\n';
       if (count == 0) {
         continue;
       }
+      // For every possible knight move from letter, calc the the new vowel
       for (const std::string& dest : knight_moves.at(letter)) {
         const size_t new_vowel = vowel + (is_vowel(dest) ? 1 : 0);
         // Constraint violated continue
@@ -123,6 +128,7 @@ auto aggregate_dp(
     -> int64_t
 {
   int64_t total = 0;
+  // For every letter total the count of vowels
   for (const std::string& letter : letter_layout()) {
     for (size_t vowel = 0; vowel <= max_vowels; ++vowel) {
       total += dp_array[letter][sequence_length - 1][vowel];
@@ -172,9 +178,6 @@ auto count_knight_sequences() -> int64_t
   std::unordered_map<std::string, std::vector<std::vector<int64_t>>> dp_array =
       init_vowels_dp();
 
-  // Letter	0th-row	       1st-row	...	(sequence_length-1)th-row
-  // "A"	[0, 0, 0, ...]	[0, 0, 0, ...]	...	[0, 0, 0, ...]
-  // ...
   // Loop all of letter_layout and set vowel to 1 if vowel
   for (const std::string& letter : letter_layout()) {
     const size_t vowel = is_vowel(letter) ? 1 : 0;
