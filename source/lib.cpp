@@ -13,35 +13,35 @@ constexpr int max_vowels = 2;
 
 namespace
 {
-auto is_vowel(const std::string& key) -> bool
+auto is_vowel(const std::string& letter) -> bool
 {
-  return key == "A" || key == "E" || key == "I" || key == "O";
+  return letter == "A" || letter == "E" || letter == "I" || letter == "O";
 }
 
-auto key_layout() -> const std::vector<std::string>&
+auto letter_layout() -> const std::vector<std::string>&
 {
-  static const std::vector<std::string> positions_vec = {"A",
-                                                         "B",
-                                                         "C",
-                                                         "D",
-                                                         "E",
-                                                         "F",
-                                                         "G",
-                                                         "H",
-                                                         "I",
-                                                         "J",
-                                                         "K",
-                                                         "L",
-                                                         "M",
-                                                         "N",
-                                                         "O",
-                                                         "1",
-                                                         "2",
-                                                         "3"};
-  return positions_vec;
+  static const std::vector<std::string> letter_vec = {"A",
+                                                      "B",
+                                                      "C",
+                                                      "D",
+                                                      "E",
+                                                      "F",
+                                                      "G",
+                                                      "H",
+                                                      "I",
+                                                      "J",
+                                                      "K",
+                                                      "L",
+                                                      "M",
+                                                      "N",
+                                                      "O",
+                                                      "1",
+                                                      "2",
+                                                      "3"};
+  return letter_vec;
 }
 
-auto get_key_coords() -> std::unordered_map<std::string, std::pair<int, int>>
+auto get_letter_coords() -> std::unordered_map<std::string, std::pair<int, int>>
 {
   return {{"A", {0, 0}},
           {"B", {0, 1}},
@@ -63,66 +63,69 @@ auto get_key_coords() -> std::unordered_map<std::string, std::pair<int, int>>
           {"3", {3, 3}}};
 }
 
-// Reverts the key_layout mapping on the fly, inlined because its a hot function
-// We should precompute this if the keyboard layout is larger but for our case
-// it is fine
-inline auto invert_key_positions(
-    const std::unordered_map<std::string, std::pair<int, int>>& key_pos)
+// Invert the letter_layout mapping to quickly lookup the X(row) and Y(col) and
+// get the letter
+auto invert_letter_layout(
+    const std::unordered_map<std::string, std::pair<int, int>>& letter_coords)
     -> std::unordered_map<int, std::unordered_map<int, std::string>>
 {
-  std::unordered_map<int, std::unordered_map<int, std::string>> pos_keys;
-  for (const auto& [key, coords] : key_pos) {
-    pos_keys[coords.first][coords.second] = key;
+  std::unordered_map<int, std::unordered_map<int, std::string>> coords_letter;
+  for (const auto& [letter, coords] : letter_coords) {
+    coords_letter[coords.first][coords.second] = letter;
   }
-  return pos_keys;
+  return coords_letter;
 }
 
 auto init_vowels_dp()
     -> std::unordered_map<std::string, std::vector<std::vector<int64_t>>>
 {
   std::unordered_map<std::string, std::vector<std::vector<int64_t>>> dp_array;
-  for (const std::string& key : key_layout()) {
+  for (const std::string& letter : letter_layout()) {
     // max vowels + 1 to map 0 vowels as well
-    dp_array[key] = std::vector<std::vector<int64_t>>(
+    dp_array[letter] = std::vector<std::vector<int64_t>>(
         sequence_length, std::vector<int64_t>(max_vowels + 1, 0));
   }
   return dp_array;
 }
 
-// For every possible knight move from key calc the the new vowel count
+// For every possible knight move from letter, calc the the new vowel count
 void dp_step(
-    std::unordered_map<std::string, std::vector<std::vector<int64_t>>>&
+    const std::unordered_map<std::string, std::vector<std::vector<int64_t>>>&
         dp_array,
     const std::unordered_map<std::string, std::vector<std::string>>&
         knight_moves,
     std::unordered_map<std::string, std::vector<std::vector<int64_t>>>& next_dp,
-    size_t pos)
+    size_t seq)
 {
-  for (const std::string& key : key_layout()) {
+  for (const std::string& letter : letter_layout()) {
     for (size_t vowel = 0; vowel <= max_vowels; ++vowel) {
-      const int64_t count = dp_array[key][pos - 1][vowel];
+      const int64_t count = dp_array.at(letter)[seq - 1][vowel];
+      // Count = number of ways to reach letter at seq-1 with vowels
+      // If it is 0 (no possible way to reach letter) skip
       if (count == 0) {
         continue;
       }
-      for (const std::string& dest : knight_moves.at(key)) {
+      for (const std::string& dest : knight_moves.at(letter)) {
         const size_t new_vowel = vowel + (is_vowel(dest) ? 1 : 0);
+        // Constraint violated continue
         if (new_vowel > max_vowels) {
           continue;
         }
-        next_dp[dest][pos][new_vowel] += count;
+        next_dp[dest][seq][new_vowel] += count;
       }
     }
   }
 }
 
+// Compute the total number of valid sequences
 auto aggregate_dp(
     std::unordered_map<std::string, std::vector<std::vector<int64_t>>> dp_array)
     -> int64_t
 {
   int64_t total = 0;
-  for (const std::string& key : key_layout()) {
+  for (const std::string& letter : letter_layout()) {
     for (size_t vowel = 0; vowel <= max_vowels; ++vowel) {
-      total += dp_array[key][sequence_length - 1][vowel];
+      total += dp_array[letter][sequence_length - 1][vowel];
     }
   }
   return total;
@@ -134,16 +137,16 @@ auto aggregate_dp(
 auto get_knight_moves()
     -> std::unordered_map<std::string, std::vector<std::string>>
 {
-  auto key_pos = get_key_coords();
+  auto letter_coords = get_letter_coords();
 
-  auto pos_keys = invert_key_positions(key_pos);
-  std::unordered_map<std::string, std::vector<std::string>> moves;
+  auto coords_letter = invert_letter_layout(letter_coords);
+  std::unordered_map<std::string, std::vector<std::string>> possible_moves;
   // Define possible moves of a Knight i.e., 1 is down, -1 is up, 2 is right, -2
   // is left
   const std::vector<std::pair<int, int>> directions = {
       {1, 2}, {1, -2}, {-1, 2}, {-1, -2}, {2, 1}, {2, -1}, {-2, 1}, {-2, -1}};
 
-  for (const auto& [key, coords] : key_pos) {
+  for (const auto& [letter, coords] : letter_coords) {
     const int coord_x = coords.first;
     const int coord_y = coords.second;
     // Calculate possible knight moves
@@ -151,32 +154,37 @@ auto get_knight_moves()
       const int dir_x = coord_x + direction.first;
       const int dir_y = coord_y + direction.second;
       // Check if the outter map contains dir_x if dir_x exists we check dir_y
-      if (pos_keys.count(dir_x) != 0U && pos_keys.at(dir_x).count(dir_y) != 0U)
+      if (coords_letter.count(dir_x) != 0U
+          && coords_letter.at(dir_x).count(dir_y) != 0U)
       {
-        moves[key].push_back(pos_keys.at(dir_x).at(dir_y));
+        // if both x and y exist push the intersection of the two (key layout)
+        possible_moves[letter].push_back(coords_letter.at(dir_x).at(dir_y));
       }
     }
   }
-  return moves;
+  return possible_moves;
 }
 
 auto count_knight_sequences() -> int64_t
 {
   auto knight_moves = get_knight_moves();
-  // Map of key to <seq_position, vowel_count> init to 0
+  // Map of letter to <seq_position, vowel_count> init to 0
   std::unordered_map<std::string, std::vector<std::vector<int64_t>>> dp_array =
       init_vowels_dp();
 
-  // Loop all of key_layout and set vowel to 1 if vowel
-  for (const std::string& key : key_layout()) {
-    const size_t vowel = is_vowel(key) ? 1 : 0;
-    dp_array[key][0][vowel] = 1;
+  // Letter	0th-row	       1st-row	...	(sequence_length-1)th-row
+  // "A"	[0, 0, 0, ...]	[0, 0, 0, ...]	...	[0, 0, 0, ...]
+  // ...
+  // Loop all of letter_layout and set vowel to 1 if vowel
+  for (const std::string& letter : letter_layout()) {
+    const size_t vowel = is_vowel(letter) ? 1 : 0;
+    dp_array[letter][0][vowel] = 1;
   }
 
-  for (size_t pos = 1; pos < sequence_length; ++pos) {
+  for (size_t seq = 1; seq < sequence_length; ++seq) {
     std::unordered_map<std::string, std::vector<std::vector<int64_t>>> next_dp =
         init_vowels_dp();
-    dp_step(dp_array, knight_moves, next_dp, pos);
+    dp_step(dp_array, knight_moves, next_dp, seq);
     dp_array = next_dp;
   }
 

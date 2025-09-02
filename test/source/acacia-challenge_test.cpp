@@ -1,3 +1,5 @@
+#include <cstdint>
+
 #include <boost/range/algorithm/find.hpp>
 #include <catch2/catch_test_macros.hpp>
 
@@ -29,9 +31,12 @@ TEST_CASE("O knight moves include D and 2", "[knight][move]")
       boost::range::find(moves_from_o, "D") != moves_from_o.end();
   const bool has_2 =
       boost::range::find(moves_from_o, "2") != moves_from_o.end();
+  const bool has_h =
+      boost::range::find(moves_from_o, "H") != moves_from_o.end();
 
   REQUIRE(has_d);
   REQUIRE(has_2);
+  REQUIRE(has_h);
 }
 
 TEST_CASE("H knight moves include A, E, K, O, 1, 3", "[knight][move]")
@@ -57,4 +62,13 @@ TEST_CASE("H knight moves include A, E, K, O, 1, 3", "[knight][move]")
   REQUIRE(has_o);
   REQUIRE(has_1);
   REQUIRE(has_3);
+}
+
+TEST_CASE(
+    "count_knight_sequences returns the correct total for a 10-move sequence "
+    "with at most 2 vowels allowed",
+    "[knight][sequence]")
+{
+  const int64_t total = count_knight_sequences();
+  REQUIRE(total == 1013398);
 }
